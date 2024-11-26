@@ -9,6 +9,8 @@
  */
 
 
+#include "ns_ambiqsuite_harness.h"
+#include "ns_peripherals_power.h"
 #include <arm_mve.h>
 
 #include "main.h"
@@ -17,9 +19,15 @@
 #define STIMULUS_LEN 1024
 static float32_t data[STIMULUS_LEN];
 
+
 int
 main(void)
 {
+   // Fill two arrays with random values
+   float32_t A[10] = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
+   float32_t B[10] = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
+   float32_t Dst[10];
+
     // Initialize data with random values
     for (int i = 0; i < STIMULUS_LEN; i++)
     {

@@ -34,7 +34,8 @@ modules      += ns-mirror/neuralspot/ns-rpc
 # External modules
 modules      += ns-mirror/extern/AmbiqSuite/$(AS_VERSION)
 modules      += ns-mirror/extern/CMSIS/CMSIS-DSP-1.15.0
-modules      += ns-mirror/extern/tensorflow/$(TF_VERSION)
+modules      += modules/tensorflow
+# modules      += ns-mirror/extern/tensorflow/$(TF_VERSION)
 modules      += ns-mirror/extern/SEGGER_RTT/R7.70a
 modules      += ns-mirror/extern/erpc/R1.9.1
 

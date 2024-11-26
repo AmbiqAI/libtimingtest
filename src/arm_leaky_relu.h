@@ -11,7 +11,6 @@ extern "C" {
 
 void
 arm_leaky_relu_f32(float32_t *data, int32_t size, float32_t alpha);
-
 #ifdef __cplusplus
 }
 #endif
