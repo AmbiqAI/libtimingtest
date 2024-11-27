@@ -4,7 +4,7 @@
 void
 arm_leaky_relu_s8(int8_t *data, int32_t size, int8_t alpha)
 {
-
+    // leakyReLU = x if x > 0 else alpha * x
 }
 
 void
