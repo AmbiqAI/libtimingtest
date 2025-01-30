@@ -8,31 +8,39 @@
  *
  */
 
-
+#include <arm_mve.h>
+// neuralSPOT
 #include "ns_ambiqsuite_harness.h"
 #include "ns_peripherals_power.h"
-#include <arm_mve.h>
-
+// Locals
+#include "tflm.h"
+#include "model.h"
 #include "main.h"
-#include "arm_leaky_relu.h"
 
-#define STIMULUS_LEN 1024
-static float32_t data[STIMULUS_LEN];
+void
+hardware_init(void) {
+    ns_core_config_t nsCoreCfg = {
+        .api = &ns_core_V1_0_0
+    };
 
+    NS_TRY(ns_core_init(&nsCoreCfg), "Core Init failed.\b");
+    NS_TRY(ns_power_config(&ns_development_default), "Power Init Failed\n");
+    ns_itm_printf_enable();
+    ns_interrupt_master_enable();
+}
 
 int
 main(void)
 {
-   // Fill two arrays with random values
-   float32_t A[10] = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
-   float32_t B[10] = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
-   float32_t Dst[10];
+    uint32_t status;
+    hardware_init();
+    NS_TRY(tflm_init(), "TFLM Init Failed\n");
+    NS_TRY(model_init(), "MODEL Init Failed\n");
 
-    // Initialize data with random values
-    for (int i = 0; i < STIMULUS_LEN; i++)
-    {
-        data[i] = (float32_t)rand() / RAND_MAX;
-    }
-    arm_leaky_relu_f32(data, STIMULUS_LEN, 0.1);
-    while (1) {};
+    while (1) {
+        ns_printf("Running Inference...\n");
+        status = model_inference();
+        ns_printf("Inference Status: %d\n", status);
+        ns_delay_us(500000);
+    };
 }
