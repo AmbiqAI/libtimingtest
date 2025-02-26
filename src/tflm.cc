@@ -145,6 +145,10 @@ tflm_init() {
     resolver.AddZerosLike();
 
     appOpResolver = &resolver;
+
+    static tflite::MicroProfiler tflm_profiler;
+    profiler = &tflm_profiler;
+
     return 0;
 }
 

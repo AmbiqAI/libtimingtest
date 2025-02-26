@@ -10,10 +10,10 @@ TFLM_SRC_DIR=$DIR/../ns-tflm
 
 TARGET=cortex_m_generic
 TOOLCHAIN=gcc
-OPTIM_KERNEL=cmsis_nn
-CO_PROCESSOR=ambiq
+OPTIM_KERNEL=ambiq
+CO_PROCESSOR=
 TARGET_ARCH=cortex-m55
-TARGET_TOOLCHAIN_ROOT="" # TODO: Override the default which is currently 13.2.Rel1
+TARGET_TOOLCHAIN_ROOT=""
 # Build TFLM with release, release_with_logs, and debug
 BUILDS=(release release_with_logs debug)
 
@@ -39,8 +39,13 @@ for BUILD in ${BUILDS[@]}; do
     # Replace _ with - in the build name
     BUILD_NAME=$(echo $BUILD | tr _ -)
     TARGET_NAME=$(echo $TARGET_ARCH | sed 's/ortex-//')
-    cp $TFLM_SRC_DIR/gen/${TARGET}_${TARGET_ARCH}_${BUILD}_${OPTIM_KERNEL}_${CO_PROCESSOR}_${TOOLCHAIN}/lib/libtensorflow-microlite.a \
-        $DIR/lib/libtensorflow-microlite-${TARGET_NAME}-${TOOLCHAIN}-${BUILD_NAME}.a
+    if [ -n "$CO_PROCESSOR" ]; then
+        cp $TFLM_SRC_DIR/gen/${TARGET}_${TARGET_ARCH}_${BUILD}_${OPTIM_KERNEL}_${CO_PROCESSOR}_${TOOLCHAIN}/lib/libtensorflow-microlite.a \
+            $DIR/lib/libtensorflow-microlite-${TARGET_NAME}-${TOOLCHAIN}-${BUILD_NAME}.a
+    else
+        cp $TFLM_SRC_DIR/gen/${TARGET}_${TARGET_ARCH}_${BUILD}_${OPTIM_KERNEL}_${TOOLCHAIN}/lib/libtensorflow-microlite.a \
+            $DIR/lib/libtensorflow-microlite-${TARGET_NAME}-${TOOLCHAIN}-${BUILD_NAME}.a
+    fi
 done
 
 echo "Creating TFLM tree"

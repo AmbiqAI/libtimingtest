@@ -25,6 +25,7 @@ modules      += ns-mirror/neuralspot/ns-peripherals
 modules      += ns-mirror/neuralspot/ns-ipc
 modules      += ns-mirror/neuralspot/ns-audio
 modules      += ns-mirror/neuralspot/ns-utils
+modules      += ns-mirror/neuralspot/ns-uart
 modules      += ns-mirror/neuralspot/ns-features
 modules      += ns-mirror/neuralspot/ns-i2c
 modules      += ns-mirror/neuralspot/ns-spi
@@ -34,6 +35,7 @@ modules      += ns-mirror/neuralspot/ns-rpc
 # External modules
 modules      += ns-mirror/extern/AmbiqSuite/$(AS_VERSION)
 modules      += ns-mirror/extern/CMSIS/CMSIS-DSP-1.15.0
+modules      += modules/ns-cmsis-nn
 modules      += modules/tensorflow
 # modules      += ns-mirror/extern/tensorflow/$(TF_VERSION)
 modules      += ns-mirror/extern/SEGGER_RTT/R7.70a
