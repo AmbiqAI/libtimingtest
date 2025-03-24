@@ -6,7 +6,6 @@
 #include "tensorflow/lite/micro/cortex_m_generic/debug_log_callback.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 // Locals
-#include <arm_fp16.h>
 #include "tflm.h"
 // #include "model_flatbuffer_fp32.h"
 // #include "model_flatbuffer_fp16.h"
@@ -17,13 +16,13 @@
 // #include "nnse_int16.h"
 #include "model.h"
 
-#define MODEL_ARENA_SIZE_KB (800)
-#define MODEL_RESOURCE_VAR_COUNT (4)
+#define MODEL_ARENA_SIZE_KB (10)
+#define MODEL_RESOURCE_VAR_COUNT (0)
 constexpr int kNumResourceVariables = 24;
 static constexpr int modelTensorArenaSize = 1024 * MODEL_ARENA_SIZE_KB;
 static constexpr int modelResourceVarArenaSize = 4 * (1 + MODEL_RESOURCE_VAR_COUNT) * sizeof(tflite::MicroResourceVariables);
-alignas(16) static uint8_t model_var_arena[modelResourceVarArenaSize];
-AM_SHARED_RW alignas(16) static uint8_t modelTensorArena[modelTensorArenaSize];
+// alignas(16) static uint8_t model_var_arena[modelResourceVarArenaSize];
+NS_PUT_IN_TCM alignas(16) static uint8_t modelTensorArena[modelTensorArenaSize];
 tf_model_context_t modelCtx = {
     .arenaSize = modelTensorArenaSize,
     .arena = modelTensorArena,
@@ -63,17 +62,19 @@ model_init() {
     // Initialize interpreter
     if (ctx->interpreter != nullptr) { ctx->interpreter->Reset();}
 
-    tflite::MicroAllocator* allocator(
-        tflite::MicroAllocator::Create(ctx->arena, ctx->arenaSize));
+    // tflite::MicroAllocator* allocator(
+    //     tflite::MicroAllocator::Create(ctx->arena, ctx->arenaSize)
+    // );
 
+    static tflite::MicroInterpreter model_interpreter(ctx->model, *(ctx->resolver), ctx->arena, ctx->arenaSize, nullptr, ctx->profiler);
 
-    static tflite::MicroInterpreter model_interpreter(
-        ctx->model,
-        *(ctx->resolver),
-        allocator,
-        tflite::MicroResourceVariables::Create(allocator, kNumResourceVariables),
-        ctx->profiler
-    );
+    // static tflite::MicroInterpreter model_interpreter(
+    //     ctx->model,
+    //     *(ctx->resolver),
+    //     allocator,
+    //     tflite::MicroResourceVariables::Create(allocator, kNumResourceVariables),
+    //     ctx->profiler
+    // );
     ctx->interpreter = &model_interpreter;
 
     // Allocate tensors
@@ -132,9 +133,10 @@ model_inference() {
     ticUs = ns_us_ticker_read(&timerCfg);
     TfLiteStatus invokeStatus = ctx->interpreter->Invoke();
     tocUs = ns_us_ticker_read(&timerCfg);
-    ns_lp_printf("[MODEL] Inference time (%d): %d us\n", tocUs - ticUs, invokeStatus);
+    ns_lp_printf("[MODEL] Inference time: %d us\n", tocUs - ticUs);
 
     // ctx->profiler->LogCsv();
+    // ctx->profiler->ClearEvents();
 
     // Print output
     num_elements = 1;

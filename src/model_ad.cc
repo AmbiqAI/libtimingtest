@@ -1,64 +1,63 @@
 #include <stdint.h>
 #include <string.h>
+#include "ns_ambiqsuite_harness.h"
 #include "arm_nnfunctions.h"  // CMSIS-NN API
 #include "model_ad.h"
 
 // Maximum activation dimension for our sequential model
 #define MAX_ACTIVATION_SIZE 640
 
+extern ns_timer_config_t timerCfg;
+
 //---------------------------------------------------------------------
 // Activation buffers (ping–pong for intermediate results)
-static int8_t act_buffer0[MAX_ACTIVATION_SIZE];
-static int8_t act_buffer1[MAX_ACTIVATION_SIZE];
+alignas(16) NS_PUT_IN_TCM static int8_t act_buffer0[MAX_ACTIVATION_SIZE];
+alignas(16) NS_PUT_IN_TCM static int8_t act_buffer1[MAX_ACTIVATION_SIZE];
 
 //---------------------------------------------------------------------
 // Placeholders for weights and biases (all zero for now)
 
 // Layer 1: FullyConnected 128x640, bias 128, ReLU
-static int8_t fc1_weights[128 * 640] = {0};
-static int32_t fc1_bias[128] = {0};
+alignas(16) NS_PUT_IN_TCM static int8_t fc1_weights[128 * 640] = {0};
+alignas(16) NS_PUT_IN_TCM static int32_t fc1_bias[128] = {0};
 
 // Layer 2: FullyConnected 128x128, bias 128, ReLU
-static int8_t fc2_weights[128 * 128] = {0};
-static int32_t fc2_bias[128] = {0};
+alignas(16) NS_PUT_IN_TCM static int8_t fc2_weights[128 * 128] = {0};
+alignas(16) NS_PUT_IN_TCM static int32_t fc2_bias[128] = {0};
 
 // Layer 3: FullyConnected 128x128, bias 128, ReLU
-static int8_t fc3_weights[128 * 128] = {0};
-static int32_t fc3_bias[128] = {0};
+alignas(16) NS_PUT_IN_TCM static int8_t fc3_weights[128 * 128] = {0};
+alignas(16) NS_PUT_IN_TCM static int32_t fc3_bias[128] = {0};
 
 // Layer 4: FullyConnected 128x128, bias 128, ReLU
-static int8_t fc4_weights[128 * 128] = {0};
-static int32_t fc4_bias[128] = {0};
+alignas(16) NS_PUT_IN_TCM static int8_t fc4_weights[128 * 128] = {0};
+alignas(16) NS_PUT_IN_TCM static int32_t fc4_bias[128] = {0};
 
-// Layer 5: FullyConnected 128x128, bias 128, ReLU
-static int8_t fc5_weights[128 * 128] = {0};
-static int32_t fc5_bias[128] = {0};
+// Layer 5: FullyConnected 8x128, bias 8, ReLU
+alignas(16) NS_PUT_IN_TCM static int8_t fc5_weights[8 * 128] = {0};
+alignas(16) NS_PUT_IN_TCM static int32_t fc5_bias[8] = {0};
 
-// Layer 6: FullyConnected 8x128, bias 8, ReLU
-static int8_t fc6_weights[8 * 128] = {0};
-static int32_t fc6_bias[8] = {0};
+// Layer 6: FullyConnected 128x8, bias 128, ReLU
+alignas(16) NS_PUT_IN_TCM static int8_t fc6_weights[128 * 8] = {0};
+alignas(16) NS_PUT_IN_TCM static int32_t fc6_bias[128] = {0};
 
-// Layer 7: FullyConnected 128x8, bias 128, ReLU
-static int8_t fc7_weights[128 * 8] = {0};
-static int32_t fc7_bias[128] = {0};
+// Layer 7: FullyConnected 128x128, bias 128, ReLU
+alignas(16) NS_PUT_IN_TCM static int8_t fc7_weights[128 * 128] = {0};
+alignas(16) NS_PUT_IN_TCM static int32_t fc7_bias[128] = {0};
 
 // Layer 8: FullyConnected 128x128, bias 128, ReLU
-static int8_t fc8_weights[128 * 128] = {0};
-static int32_t fc8_bias[128] = {0};
+alignas(16) NS_PUT_IN_TCM static int8_t fc8_weights[128 * 128] = {0};
+alignas(16) NS_PUT_IN_TCM static int32_t fc8_bias[128] = {0};
 
 // Layer 9: FullyConnected 128x128, bias 128, ReLU
-static int8_t fc9_weights[128 * 128] = {0};
-static int32_t fc9_bias[128] = {0};
+alignas(16) NS_PUT_IN_TCM static int8_t fc9_weights[128 * 128] = {0};
+alignas(16) NS_PUT_IN_TCM static int32_t fc9_bias[128] = {0};
 
-// Layer 10: FullyConnected 128x128, bias 128, ReLU
-static int8_t fc10_weights[128 * 128] = {0};
-static int32_t fc10_bias[128] = {0};
+// Layer 10: FullyConnected 640x128, bias 640, no activation
+alignas(16) NS_PUT_IN_TCM static int8_t fc10_weights[640 * 128] = {0};
+alignas(16) NS_PUT_IN_TCM static int32_t fc10_bias[640] = {0};
 
-// Layer 11: FullyConnected 640x128, bias 640, no activation
-static int8_t fc11_weights[640 * 128] = {0};
-static int32_t fc11_bias[640] = {0};
-
-static int8_t ctx_buffer[1024];
+alignas(16) NS_PUT_IN_TCM static int8_t ctx_buffer[1024];
 
 // Quantization parameter structures for each layer
 static cmsis_nn_per_tensor_quant_params quant_params_fc1 = {.multiplier = 0, .shift = 1};
@@ -71,7 +70,6 @@ static cmsis_nn_per_tensor_quant_params quant_params_fc7 = {.multiplier = 0, .sh
 static cmsis_nn_per_tensor_quant_params quant_params_fc8 = {.multiplier = 0, .shift = 1};
 static cmsis_nn_per_tensor_quant_params quant_params_fc9 = {.multiplier = 0, .shift = 1};
 static cmsis_nn_per_tensor_quant_params quant_params_fc10 = {.multiplier = 0, .shift = 1};
-static cmsis_nn_per_tensor_quant_params quant_params_fc11 = {.multiplier = 0, .shift = 1};
 
 //---------------------------------------------------------------------
 // Define dimensions for the sequential model.
@@ -89,25 +87,25 @@ static const cmsis_nn_dims fc1_filter_dims = { .n = 640, .h = 0, .w = 0, .c = 12
 static const cmsis_nn_dims fc1_bias_dims   = { .n = 0, .h = 0, .w = 0, .c = 128 };
 static const cmsis_nn_dims fc1_output_dims = { .n = 1, .h = 0, .w = 0, .c = 128 };
 
-// Layers 2-5 and 8-10: 128 -> 128
+// Layers 2-4 and 7-9: 128 -> 128
 static const cmsis_nn_dims fc128_filter_dims = { .n = 128, .h = 0, .w = 0, .c = 128 };
 static const cmsis_nn_dims fc128_bias_dims   = { .n = 0, .h = 0, .w = 0, .c = 128 };
 static const cmsis_nn_dims fc128_output_dims = { .n = 1, .h = 0, .w = 0, .c = 128 };
 
-// Layer 6: 128 -> 8
-static const cmsis_nn_dims fc6_filter_dims = { .n = 128, .h = 0, .w = 0, .c = 8 };
-static const cmsis_nn_dims fc6_bias_dims   = { .n = 0, .h = 0, .w = 0, .c = 8 };
-static const cmsis_nn_dims fc6_output_dims = { .n = 1, .h = 0, .w = 0, .c = 8 };
+// Layer 5: 128 -> 8
+static const cmsis_nn_dims fc5_filter_dims = { .n = 128, .h = 0, .w = 0, .c = 8 };
+static const cmsis_nn_dims fc5_bias_dims   = { .n = 0, .h = 0, .w = 0, .c = 8 };
+static const cmsis_nn_dims fc5_output_dims = { .n = 1, .h = 0, .w = 0, .c = 8 };
 
-// Layer 7: 8 -> 128
-static const cmsis_nn_dims fc7_filter_dims = { .n = 8, .h = 0, .w = 0, .c = 128 };
-static const cmsis_nn_dims fc7_bias_dims   = { .n = 0, .h = 0, .w = 0, .c = 128 };
-static const cmsis_nn_dims fc7_output_dims = { .n = 1, .h = 0, .w = 0, .c = 128 };
+// Layer 6: 8 -> 128
+static const cmsis_nn_dims fc6_filter_dims = { .n = 8, .h = 0, .w = 0, .c = 128 };
+static const cmsis_nn_dims fc6_bias_dims   = { .n = 0, .h = 0, .w = 0, .c = 128 };
+static const cmsis_nn_dims fc6_output_dims = { .n = 1, .h = 0, .w = 0, .c = 128 };
 
-// Layer 11: 128 -> 640
-static const cmsis_nn_dims fc11_filter_dims = { .n = 128, .h = 1, .w = 128, .c = 640 };
-static const cmsis_nn_dims fc11_bias_dims   = { .n = 0, .h = 0, .w = 0, .c = 640 };
-static const cmsis_nn_dims fc11_output_dims = { .n = 1, .h = 0, .w = 0, .c = 640 };
+// Layer 10: 128 -> 640
+static const cmsis_nn_dims fc10_filter_dims = { .n = 128, .h = 1, .w = 128, .c = 640 };
+static const cmsis_nn_dims fc10_bias_dims   = { .n = 0, .h = 0, .w = 0, .c = 640 };
+static const cmsis_nn_dims fc10_output_dims = { .n = 1, .h = 0, .w = 0, .c = 640 };
 
 //---------------------------------------------------------------------
 // FC layer parameter structures
@@ -127,6 +125,7 @@ static const cmsis_nn_fc_params fc_params_linear = {
     .activation    = { .min = -128, .max = 127 }
 };
 
+static uint32_t model_ad_layer_times[10] = {0};
 
 //---------------------------------------------------------------------
 // Model initialization function.
@@ -151,15 +150,15 @@ uint32_t model_ad_init(void)
         fc4_weights[i] = (int8_t)(i % 128);
     for (int i = 0; i < 128; i++)
         fc4_bias[i] = (int32_t)(i % 128);
-    for (int i = 0; i < 128 * 128; i++)
-        fc5_weights[i] = (int8_t)(i % 128);
-    for (int i = 0; i < 128; i++)
-        fc5_bias[i] = (int32_t)(i % 128);
     for (int i = 0; i < 8 * 128; i++)
-        fc6_weights[i] = (int8_t)(i % 8);
+        fc5_weights[i] = (int8_t)(i % 8);
     for (int i = 0; i < 8; i++)
-        fc6_bias[i] = (int32_t)(i % 8);
+        fc5_bias[i] = (int32_t)(i % 8);
     for (int i = 0; i < 128 * 8; i++)
+        fc6_weights[i] = (int8_t)(i % 128);
+    for (int i = 0; i < 128; i++)
+        fc6_bias[i] = (int32_t)(i % 128);
+    for (int i = 0; i < 128 * 128; i++)
         fc7_weights[i] = (int8_t)(i % 128);
     for (int i = 0; i < 128; i++)
         fc7_bias[i] = (int32_t)(i % 128);
@@ -171,14 +170,10 @@ uint32_t model_ad_init(void)
         fc9_weights[i] = (int8_t)(i % 128);
     for (int i = 0; i < 128; i++)
         fc9_bias[i] = (int32_t)(i % 128);
-    for (int i = 0; i < 128 * 128; i++)
-        fc10_weights[i] = (int8_t)(i % 128);
-    for (int i = 0; i < 128; i++)
-        fc10_bias[i] = (int32_t)(i % 128);
     for (int i = 0; i < 640 * 128; i++)
-        fc11_weights[i] = (int8_t)(i % 128);
+        fc10_weights[i] = (int8_t)(i % 128);
     for (int i = 0; i < 640; i++)
-        fc11_bias[i] = (int32_t)(i % 128);
+        fc10_bias[i] = (int32_t)(i % 128);
 
     return 0;
 }
@@ -190,6 +185,7 @@ uint32_t model_ad_init(void)
 uint32_t model_ad_run(const int8_t *input, int8_t *output)
 {
     arm_cmsis_nn_status status;
+    uint32_t ticUs, tocUs;
     cmsis_nn_context ctx;
     ctx.buf = ctx_buffer;
     ctx.size = sizeof(ctx_buffer);
@@ -199,7 +195,10 @@ uint32_t model_ad_run(const int8_t *input, int8_t *output)
     const int8_t *in_ptr = input;
     int8_t *out_ptr = act_buffer0;
 
+    // ns_timer_clear(&timerCfg);
+
     // --- Layer 1: FC 128x640, ReLU ---
+    ticUs = ns_us_ticker_read(&timerCfg);
     status = arm_fully_connected_s8(&ctx,
                                     &fc_params_relu,
                                     &quant_params_fc1,
@@ -213,6 +212,9 @@ uint32_t model_ad_run(const int8_t *input, int8_t *output)
                                     out_ptr);
     if (status != ARM_CMSIS_NN_SUCCESS)
         return status;
+    tocUs = ns_us_ticker_read(&timerCfg);
+    model_ad_layer_times[0] = tocUs - ticUs;
+    ticUs = tocUs;
 
     // For subsequent layers we alternate between the two activation buffers.
     in_ptr = out_ptr;
@@ -220,7 +222,7 @@ uint32_t model_ad_run(const int8_t *input, int8_t *output)
 
     // --- Layer 2: FC 128x128, ReLU ---
     {
-        cmsis_nn_dims fc2_input_dims = { .n = 1, .h = 1, .w = 1, .c = 128 };
+        static const cmsis_nn_dims fc2_input_dims = { .n = 1, .h = 1, .w = 1, .c = 128 };
         status = arm_fully_connected_s8(&ctx,
                                         &fc_params_relu,
                                         &quant_params_fc2,
@@ -234,6 +236,9 @@ uint32_t model_ad_run(const int8_t *input, int8_t *output)
                                         out_ptr);
         if (status != ARM_CMSIS_NN_SUCCESS)
             return status;
+        tocUs = ns_us_ticker_read(&timerCfg);
+        model_ad_layer_times[1] = tocUs - ticUs;
+        ticUs = tocUs;
     }
     // Swap buffers
     in_ptr = out_ptr;
@@ -241,7 +246,7 @@ uint32_t model_ad_run(const int8_t *input, int8_t *output)
 
     // --- Layer 3: FC 128x128, ReLU ---
     {
-        cmsis_nn_dims fc3_input_dims = { .n = 1, .h = 1, .w = 1, .c = 128 };
+        static const cmsis_nn_dims fc3_input_dims = { .n = 1, .h = 1, .w = 1, .c = 128 };
         status = arm_fully_connected_s8(&ctx,
                                         &fc_params_relu,
                                         &quant_params_fc3,
@@ -255,6 +260,9 @@ uint32_t model_ad_run(const int8_t *input, int8_t *output)
                                         out_ptr);
         if (status != ARM_CMSIS_NN_SUCCESS)
             return status;
+        tocUs = ns_us_ticker_read(&timerCfg);
+        model_ad_layer_times[2] = tocUs - ticUs;
+        ticUs = tocUs;
     }
     // Swap buffers
     in_ptr = out_ptr;
@@ -262,7 +270,7 @@ uint32_t model_ad_run(const int8_t *input, int8_t *output)
 
     // --- Layer 4: FC 128x128, ReLU ---
     {
-        cmsis_nn_dims fc4_input_dims = { .n = 1, .h = 1, .w = 1, .c = 128 };
+        static const cmsis_nn_dims fc4_input_dims = { .n = 1, .h = 1, .w = 1, .c = 128 };
         status = arm_fully_connected_s8(&ctx,
                                         &fc_params_relu,
                                         &quant_params_fc4,
@@ -276,35 +284,42 @@ uint32_t model_ad_run(const int8_t *input, int8_t *output)
                                         out_ptr);
         if (status != ARM_CMSIS_NN_SUCCESS)
             return status;
+        tocUs = ns_us_ticker_read(&timerCfg);
+        model_ad_layer_times[3] = tocUs - ticUs;
+        ticUs = tocUs;
     }
     // Swap buffers
     in_ptr = out_ptr;
     out_ptr = act_buffer0;
 
-    // --- Layer 5: FC 128x128, ReLU ---
+    // --- Layer 5: FC 8x128, ReLU ---
     {
-        cmsis_nn_dims fc5_input_dims = { .n = 1, .h = 1, .w = 1, .c = 128 };
+        static const cmsis_nn_dims fc5_input_dims = { .n = 1, .h = 1, .w = 1, .c = 128 };
         status = arm_fully_connected_s8(&ctx,
                                         &fc_params_relu,
                                         &quant_params_fc5,
                                         &fc5_input_dims,
                                         in_ptr,
-                                        &fc128_filter_dims,
+                                        &fc5_filter_dims,
                                         fc5_weights,
-                                        &fc128_bias_dims,
+                                        &fc5_bias_dims,
                                         fc5_bias,
-                                        &fc128_output_dims,
+                                        &fc5_output_dims,
                                         out_ptr);
         if (status != ARM_CMSIS_NN_SUCCESS)
             return status;
+        tocUs = ns_us_ticker_read(&timerCfg);
+        model_ad_layer_times[4] = tocUs - ticUs;
+        ticUs = tocUs;
     }
-    // Swap buffers
+    // For the next layer, note that the dimension changes (8 outputs).
     in_ptr = out_ptr;
+    // We reuse one of our activation buffers; since 8 < MAX_ACTIVATION_SIZE we are safe.
     out_ptr = act_buffer1;
 
-    // --- Layer 6: FC 8x128, ReLU ---
+    // --- Layer 6: FC 128x8, ReLU ---
     {
-        cmsis_nn_dims fc6_input_dims = { .n = 1, .h = 1, .w = 1, .c = 128 };
+        static const cmsis_nn_dims fc6_input_dims = { .n = 1, .h = 1, .w = 1, .c = 8 };
         status = arm_fully_connected_s8(&ctx,
                                         &fc_params_relu,
                                         &quant_params_fc6,
@@ -314,40 +329,45 @@ uint32_t model_ad_run(const int8_t *input, int8_t *output)
                                         fc6_weights,
                                         &fc6_bias_dims,
                                         fc6_bias,
-                                        &fc6_output_dims,
+                                        &fc128_output_dims,
                                         out_ptr);
         if (status != ARM_CMSIS_NN_SUCCESS)
             return status;
+        tocUs = ns_us_ticker_read(&timerCfg);
+        model_ad_layer_times[5] = tocUs - ticUs;
+        ticUs = tocUs;
     }
-    // For the next layer, note that the dimension changes (8 outputs).
+    // Swap buffers (back to 128-dim activation)
     in_ptr = out_ptr;
-    // We reuse one of our activation buffers; since 8 < MAX_ACTIVATION_SIZE we are safe.
     out_ptr = act_buffer0;
 
-    // --- Layer 7: FC 128x8, ReLU ---
+    // --- Layer 7: FC 128x128, ReLU ---
     {
-        cmsis_nn_dims fc7_input_dims = { .n = 1, .h = 1, .w = 1, .c = 8 };
+        static const cmsis_nn_dims fc7_input_dims = { .n = 1, .h = 1, .w = 1, .c = 128 };
         status = arm_fully_connected_s8(&ctx,
                                         &fc_params_relu,
                                         &quant_params_fc7,
                                         &fc7_input_dims,
                                         in_ptr,
-                                        &fc7_filter_dims,
+                                        &fc128_filter_dims,
                                         fc7_weights,
-                                        &fc7_bias_dims,
+                                        &fc128_bias_dims,
                                         fc7_bias,
                                         &fc128_output_dims,
                                         out_ptr);
         if (status != ARM_CMSIS_NN_SUCCESS)
             return status;
+        tocUs = ns_us_ticker_read(&timerCfg);
+        model_ad_layer_times[6] = tocUs - ticUs;
+        ticUs = tocUs;
     }
-    // Swap buffers (back to 128-dim activation)
+    // Swap buffers
     in_ptr = out_ptr;
     out_ptr = act_buffer1;
 
     // --- Layer 8: FC 128x128, ReLU ---
     {
-        cmsis_nn_dims fc8_input_dims = { .n = 1, .h = 1, .w = 1, .c = 128 };
+        static const cmsis_nn_dims fc8_input_dims = { .n = 1, .h = 1, .w = 1, .c = 128 };
         status = arm_fully_connected_s8(&ctx,
                                         &fc_params_relu,
                                         &quant_params_fc8,
@@ -361,6 +381,9 @@ uint32_t model_ad_run(const int8_t *input, int8_t *output)
                                         out_ptr);
         if (status != ARM_CMSIS_NN_SUCCESS)
             return status;
+        tocUs = ns_us_ticker_read(&timerCfg);
+        model_ad_layer_times[7] = tocUs - ticUs;
+        ticUs = tocUs;
     }
     // Swap buffers
     in_ptr = out_ptr;
@@ -368,7 +391,7 @@ uint32_t model_ad_run(const int8_t *input, int8_t *output)
 
     // --- Layer 9: FC 128x128, ReLU ---
     {
-        cmsis_nn_dims fc9_input_dims = { .n = 1, .h = 1, .w = 1, .c = 128 };
+        static const cmsis_nn_dims fc9_input_dims = { .n = 1, .h = 1, .w = 1, .c = 128 };
         status = arm_fully_connected_s8(&ctx,
                                         &fc_params_relu,
                                         &quant_params_fc9,
@@ -382,52 +405,43 @@ uint32_t model_ad_run(const int8_t *input, int8_t *output)
                                         out_ptr);
         if (status != ARM_CMSIS_NN_SUCCESS)
             return status;
-    }
-    // Swap buffers
-    in_ptr = out_ptr;
-    out_ptr = act_buffer1;
-
-    // --- Layer 10: FC 128x128, ReLU ---
-    {
-        cmsis_nn_dims fc10_input_dims = { .n = 1, .h = 1, .w = 1, .c = 128 };
-        status = arm_fully_connected_s8(&ctx,
-                                        &fc_params_relu,
-                                        &quant_params_fc10,
-                                        &fc10_input_dims,
-                                        in_ptr,
-                                        &fc128_filter_dims,
-                                        fc10_weights,
-                                        &fc128_bias_dims,
-                                        fc10_bias,
-                                        &fc128_output_dims,
-                                        out_ptr);
-        if (status != ARM_CMSIS_NN_SUCCESS)
-            return status;
+        tocUs = ns_us_ticker_read(&timerCfg);
+        model_ad_layer_times[8] = tocUs - ticUs;
+        ticUs = tocUs;
     }
     // Swap buffers for final layer.
     in_ptr = out_ptr;
-    out_ptr = act_buffer0;
+    out_ptr = act_buffer1;
 
-    // --- Layer 11: FC 640x128, no activation ---
+    // --- Layer 10: FC 640x128, no activation ---
     {
-        cmsis_nn_dims fc11_input_dims = { .n = 1, .h = 1, .w = 1, .c = 128 };
+        static const cmsis_nn_dims fc10_input_dims = { .n = 1, .h = 1, .w = 1, .c = 128 };
         status = arm_fully_connected_s8(&ctx,
                                         &fc_params_linear,
-                                        &quant_params_fc11,
-                                        &fc11_input_dims,
+                                        &quant_params_fc10,
+                                        &fc10_input_dims,
                                         in_ptr,
-                                        &fc11_filter_dims,
-                                        fc11_weights,
-                                        &fc11_bias_dims,
-                                        fc11_bias,
-                                        &fc11_output_dims,
+                                        &fc10_filter_dims,
+                                        fc10_weights,
+                                        &fc10_bias_dims,
+                                        fc10_bias,
+                                        &fc10_output_dims,
                                         out_ptr);
         if (status != ARM_CMSIS_NN_SUCCESS)
             return status;
+        tocUs = ns_us_ticker_read(&timerCfg);
+        model_ad_layer_times[9] = tocUs - ticUs;
+        ticUs = tocUs;
     }
 
     // Final output (640 int8 values) is now in out_ptr.
     memcpy(output, out_ptr, 640 * sizeof(int8_t));
+
+    // print all layer times in us
+    for (int i = 0; i < 10; i++)
+    {
+        ns_lp_printf("Layer %d time: %d us\n", i, model_ad_layer_times[i]);
+    }
 
     return ARM_CMSIS_NN_SUCCESS;
 }

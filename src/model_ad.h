@@ -14,7 +14,6 @@
 
  #include <stdint.h>
  #include "arm_math.h"
- #include "tflm.h"
 
 
  /**
