@@ -34,16 +34,13 @@ modules      += neuralspot/neuralspot/ns-rpc
 
 # External modules
 modules      += neuralspot/extern/AmbiqSuite/$(AS_VERSION)
-# modules      += neuralspot/extern/CMSIS/CMSIS-DSP-1.15.0
 modules      += modules/ns-cmsis-nn
-modules      += modules/tensorflow
 modules      += modules/ns-cmsis-dsp
+# modules      += neuralspot/extern/CMSIS/CMSIS-DSP-1.16.2
 # modules      += neuralspot/extern/tensorflow/$(TF_VERSION)
-# modules      += neuralspot/extern/SEGGER_RTT/R7.70a
+# modules      += modules/tensorflow
+modules      += modules/aot-unit-test
 modules      += neuralspot/extern/erpc/R1.9.1
-
-# Add-on modules
-# modules += modules/ns-tflm
 
 TARGET = $(local_app_name)
 sources := $(wildcard src/*.c)
@@ -116,19 +113,32 @@ $(BINDIR)/%.o: %.c
 $(BINDIR)/%.o: %.s
 	@echo " Assembling $(COMPILERNAME) $<"
 	$(Q) $(MKD) -p $(@D)
-	$(Q) $(CC) -c $(CFLAGS) $< -o $@
+	$(Q) $(CC) -c $(ASMFLAGS) $< -o $@
 
-$(BINDIR)/$(local_app_name).axf: $(objects)
+# $(eval $(call make-axf, $(BINDIR)/$(local_app_name), $(sources)))
+
+$(BINDIR)/$(local_app_name).axf: $(objects) $(libraries) $(lib_prebuilt) $(override_libraries)
 	@echo " Linking $(COMPILERNAME) $@"
 	$(Q) $(MKD) -p $(@D)
-	$(Q) $(CC) -Wl,-T,$(LINKER_FILE) -o $@ $(objects) $(LFLAGS)
+ifeq ($(TOOLCHAIN),arm)
+	$(Q) $(LD) $^ $(LFLAGS) --list=$*.map -o $@
+else
+	$(Q) $(CC) -Wl,-T,$(LINKER_FILE) -o $@ $^ $(LFLAGS)
+endif
 
+ifeq ($(TOOLCHAIN),arm)
+$(BINDIR)/$(local_app_name).bin: $(BINDIR)/$(local_app_name).axf
+	@echo " Copying $(COMPILERNAME) $@..."
+	$(Q) $(MKD) -p $(@D)
+	$(Q) $(CP) $(CPFLAGS) $@ $<
+	$(Q) $(OD) $(ODFLAGS) $< --output $*.txt
+else
 $(BINDIR)/$(local_app_name).bin: $(BINDIR)/$(local_app_name).axf
 	@echo " Copying $(COMPILERNAME) $@..."
 	$(Q) $(MKD) -p $(@D)
 	$(Q) $(CP) $(CPFLAGS) $< $@
-	$(Q) $(OD) $(ODFLAGS) $< > $(BINDIR)/$(local_app_name).lst
-	$(Q) $(SIZE) $(objects) $(lib_prebuilt) $< > $(BINDIR)/$(local_app_name).size
+	$(Q) $(OD) $(ODFLAGS) $< > $(@:.bin=.lst)
+endif
 
 $(JLINK_CF):
 	@echo " Creating JLink command sequence input file..."

@@ -9,3 +9,4 @@ TF_VERSION := ns_tflm_2025_02_14
 # TF_VERSION := bb4fc83d_Mar_28_2024
 
 TOOLCHAIN := arm-none-eabi
+# TOOLCHAIN := arm

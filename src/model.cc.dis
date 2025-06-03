@@ -7,16 +7,10 @@
 #include "tensorflow/lite/schema/schema_generated.h"
 // Locals
 #include "tflm.h"
-// #include "model_flatbuffer_fp32.h"
-// #include "model_flatbuffer_fp16.h"
-// #include "model_flatbuffer_s8.h"
-#include "model_ad_flatbuffer.h"
-// #include "model_flatbuffer_s16.h"
-// #include "nnse_16x8_flatbuffer.h"
-// #include "nnse_int16.h"
+#include "model_flatbuffer.h"
 #include "model.h"
 
-#define MODEL_ARENA_SIZE_KB (10)
+#define MODEL_ARENA_SIZE_KB (27)
 #define MODEL_RESOURCE_VAR_COUNT (0)
 constexpr int kNumResourceVariables = 24;
 static constexpr int modelTensorArenaSize = 1024 * MODEL_ARENA_SIZE_KB;
@@ -26,7 +20,7 @@ NS_PUT_IN_TCM alignas(16) static uint8_t modelTensorArena[modelTensorArenaSize];
 tf_model_context_t modelCtx = {
     .arenaSize = modelTensorArenaSize,
     .arena = modelTensorArena,
-    .buffer = model_ad_flatbuffer,
+    .buffer = model_flatbuffer,
     .model = nullptr,
     .input = nullptr,
     .output = nullptr,

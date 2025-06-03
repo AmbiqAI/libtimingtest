@@ -1,3 +1,4 @@
+
 # WSLENV ?= notwsl
 UNAME_R := $(shell uname -r)
 ifneq ($(filter %WSL2,$(UNAME_R)),)
@@ -70,6 +71,7 @@ endef
 # 	@echo " Helper Linking $(COMPILERNAME) $$@"
 # 	@mkdir -p $$(@D)
 # ifeq ($(TOOLCHAIN),arm)
+
 # 	$(Q) $(LD) $$^ $(LFLAGS) --list=$*.map -o $$@
 # else
 # 	$(Q) $(CC) -Wl,-T,$(LINKER_FILE) -o $$@ $$^ $(LFLAGS)
