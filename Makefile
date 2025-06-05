@@ -1,8 +1,8 @@
-include make/helpers.mk
-include make/local_overrides.mk
-include make/neuralspot_config.mk
-include make/neuralspot_toolchain.mk
-include make/jlink.mk
+include local_overrides.mk
+include neuralspot/make/helpers.mk
+include neuralspot/make/neuralspot_config.mk
+include neuralspot/make/neuralspot_toolchain.mk
+include neuralspot/make/jlink.mk
 
 ifeq ($(TOOLCHAIN),arm)
 COMPDIR := armclang
@@ -18,7 +18,7 @@ includes_api :=
 
 local_app_name := main
 
-# neuralSPOT modules
+# neuralSPOT internal modules
 modules      := neuralspot/neuralspot/ns-core
 modules      += neuralspot/neuralspot/ns-harness
 modules      += neuralspot/neuralspot/ns-peripherals
@@ -32,15 +32,17 @@ modules      += neuralspot/neuralspot/ns-spi
 modules      += neuralspot/neuralspot/ns-usb
 modules      += neuralspot/neuralspot/ns-rpc
 
-# External modules
+# neuralSPOT extern modules
 modules      += neuralspot/extern/AmbiqSuite/$(AS_VERSION)
-modules      += modules/ns-cmsis-nn
-modules      += modules/ns-cmsis-dsp
+modules      += neuralspot/extern/erpc/R1.9.1
 # modules      += neuralspot/extern/CMSIS/CMSIS-DSP-1.16.2
 # modules      += neuralspot/extern/tensorflow/$(TF_VERSION)
+
+# neuralSPOT add-on modules
 # modules      += modules/tensorflow
+modules      += modules/ns-cmsis-nn
+modules      += modules/ns-cmsis-dsp
 modules      += modules/aot-unit-test
-modules      += neuralspot/extern/erpc/R1.9.1
 
 TARGET = $(local_app_name)
 sources := $(wildcard src/*.c)
@@ -114,8 +116,6 @@ $(BINDIR)/%.o: %.s
 	@echo " Assembling $(COMPILERNAME) $<"
 	$(Q) $(MKD) -p $(@D)
 	$(Q) $(CC) -c $(ASMFLAGS) $< -o $@
-
-# $(eval $(call make-axf, $(BINDIR)/$(local_app_name), $(sources)))
 
 $(BINDIR)/$(local_app_name).axf: $(objects) $(libraries) $(lib_prebuilt) $(override_libraries)
 	@echo " Linking $(COMPILERNAME) $@"

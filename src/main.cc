@@ -14,6 +14,7 @@
 #include "ns_ambiqsuite_harness.h"
 #include "ns_peripherals_power.h"
 // Locals
+#include "aot_model.h"
 #include "aot_test_case.h"
 // #include "tflm.h"
 // #include "model.h"
@@ -59,30 +60,47 @@ hardware_init(void) {
 // AM_SHARED_RW const
 
 
+// static int8_t aot_input_0[aot_input_0_size];
+// static int8_t aot_output_0[aot_output_0_size];
+// static int8_t aot_output_1[aot_output_1_size];
+// static int8_t aot_output_2[aot_output_2_size];
+// static int8_t aot_output_3[aot_output_3_size];
 
 // static void test_stimulus_callback(
 //     int32_t op,
-//     vww_operator_state_e state,
+//     aot_operator_state_e state,
 //     int32_t status,
 //     void *user_data
 // ) {
 //     uint32_t glb_ticUs = 0;
-//     if (state == vww_model_state_started) {
-//         ns_timer_clear(&timerCfg);
+//     if (state == aot_model_state_started) {
+//         // ns_timer_clear(&timerCfg);
 //     } else
-//     if (state == vww_model_state_finished) {
+//     if (state == aot_model_state_finished) {
 //         glb_ticUs = ns_us_ticker_read(&timerCfg);
-//         ns_lp_printf("%d,%d\n", op, glb_ticUs);
+//         // ns_lp_printf("%d,%d\n", op, glb_ticUs);
 //     }
 // }
 
-// vww_model_context_t aot_model_context = {
-//     .callback = NULL,
+// aot_model_context_t aot_model_context = {
+//     .input_data = {
+//         aot_input_0
+//     },
+//     .input_len = {
+//         aot_input_0_size
+//     },
+//     .output_data = {
+//         aot_output_0, aot_output_1, aot_output_2, aot_output_3
+//     },
+//     .output_len = {
+//         aot_output_0_size, aot_output_1_size, aot_output_2_size, aot_output_3_size
+//     },
+//     .callback = test_stimulus_callback,
 //     .user_data = NULL
 // };
 
-// static AM_SHARED_RW int8_t test_stimulus_input[vww_input_len];
-// static AM_SHARED_RW int8_t test_stimulus_output[vww_output_len];
+// static AM_SHARED_RW int8_t test_stimulus_input[aot_input_len];
+// static AM_SHARED_RW int8_t test_stimulus_output[aot_output_len];
 
 int
 main(void)
@@ -91,6 +109,7 @@ main(void)
     uint32_t status = 0;
     uint32_t ticUs = 0, tocUs = 0, tacUs = 0;
     hardware_init();
+    // NS_TRY(aot_model_init(&aot_model_context), "AOT Model Init Failed\n");
     NS_TRY(aot_test_case_init(), "AOT Test Case Init Failed\n");
     // NS_TRY(tflm_init(), "TFLM Init Failed\n");
     // NS_TRY(model_init(), "MODEL Init Failed\n");
@@ -102,6 +121,7 @@ main(void)
 
         ns_timer_clear(&timerCfg);
         ticUs = ns_us_ticker_read(&timerCfg);
+        // status = aot_model_run(&aot_model_context);
         status = aot_test_case_run();
         tocUs = ns_us_ticker_read(&timerCfg);
         ns_lp_printf("AOT Test Case Run: %d us (%d)\n", tocUs - ticUs, status);

@@ -8,20 +8,17 @@ extern "C" {
 #include <stdint.h>
 
 #define aot_num_inputs 1
-#define aot_num_outputs 4
+#define aot_num_outputs 1
 
-#define aot_input_0_size 192
-#define aot_output_0_size 27
-#define aot_output_1_size 48
-#define aot_output_2_size 36
-#define aot_output_3_size 192
+#define aot_input_0_size 27648
+#define aot_output_0_size 2
 
 extern const int32_t aot_inputs_len[1];
 extern const int32_t aot_inputs_zero_point[1];
 extern const float aot_inputs_scale[1];
-extern const int32_t aot_outputs_len[4];
-extern const int32_t aot_outputs_zero_point[4];
-extern const float aot_outputs_scale[4];
+extern const int32_t aot_outputs_len[1];
+extern const int32_t aot_outputs_zero_point[1];
+extern const float aot_outputs_scale[1];
 
 
 /// Operator states passed to the callback
@@ -43,8 +40,8 @@ typedef struct {
     const void* input_data[1];
     int32_t input_len[1];
 
-    void* output_data[4];
-    int32_t output_len[4];
+    void* output_data[1];
+    int32_t output_len[1];
 
     aot_operator_callback callback;
     void *user_data;
