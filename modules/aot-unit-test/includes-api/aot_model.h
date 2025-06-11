@@ -10,8 +10,8 @@ extern "C" {
 #define aot_num_inputs 1
 #define aot_num_outputs 1
 
-#define aot_input_0_size 27648
-#define aot_output_0_size 2
+#define aot_input_0_size 490
+#define aot_output_0_size 12
 
 extern const int32_t aot_inputs_len[1];
 extern const int32_t aot_inputs_zero_point[1];

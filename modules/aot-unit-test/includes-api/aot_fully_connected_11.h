@@ -1,5 +1,5 @@
-#ifndef aot_fully_connected_29_h
-#define aot_fully_connected_29_h
+#ifndef aot_fully_connected_11_h
+#define aot_fully_connected_11_h
 
 #include <stdint.h>
 #include "arm_nnfunctions.h"
@@ -9,15 +9,15 @@ extern "C" {
 #endif
 
 // Initialize the operator.
-int32_t aot_fully_connected_29_init(void);
+int32_t aot_fully_connected_11_init(void);
 
 // Run the operator.
 // @param input  Pointer to the input buffer.
 // @param output Pointer to the output buffer.
-int32_t aot_fully_connected_29_run(const int8_t* __restrict input, int8_t* __restrict output);
+int32_t aot_fully_connected_11_run(const int8_t* __restrict input, int8_t* __restrict output);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // aot_fully_connected_29_h
+#endif // aot_fully_connected_11_h

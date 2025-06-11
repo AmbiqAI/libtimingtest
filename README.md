@@ -1,6 +1,6 @@
-# mve-kernel-exp
+# ns-aot-unit-test
 
-A playground for experimenting with custom MVE kernel operations.
+A test harness for HeliosAOT to verify the correctness of the AOT compilation process.
 
 ## Notes
 
