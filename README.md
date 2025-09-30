@@ -1,7 +1,6 @@
-# ns-aot-unit-test
+# a fork of ns-aot-unit-test
 
-A test harness for HeliosAOT to verify the correctness of the AOT compilation process.
-
+to run tests on board 
 ## Notes
 
 To view disassembly of the compiled kernel, use the following command:
