@@ -14,7 +14,7 @@ libraries    :=
 override_libraries :=
 lib_prebuilt :=
 sources      :=
-includes_api :=
+includes_api := src $(includes_api)
 
 local_app_name := main
 
@@ -65,7 +65,7 @@ LINKER_EXT := _sbl
 else ifeq ($(BOARD),apollo4p)
 LINKER_EXT :=
 endif
-
+LINKER_EXT := _sbl
 ifeq ($(TOOLCHAIN),arm)
 LINKER_FILE := neuralspot/neuralspot/ns-core/src/$(BOARD)/$(COMPDIR)/linker_script$(LINKER_EXT).sct
 else ifeq ($(TOOLCHAIN),arm-none-eabi)
