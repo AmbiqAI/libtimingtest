@@ -3,6 +3,7 @@ include neuralspot/make/helpers.mk
 include neuralspot/make/neuralspot_config.mk
 include neuralspot/make/neuralspot_toolchain.mk
 include neuralspot/make/jlink.mk
+include makefile_wrapper_call.mk
 
 ifeq ($(TOOLCHAIN),arm)
 COMPDIR := armclang

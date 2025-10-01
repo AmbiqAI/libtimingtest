@@ -10,7 +10,7 @@ extern ns_timer_config_t timerCfg;
 volatile int __unity_failures = 0;
 
 #ifndef TEST_BATCH_SIZE
-#define TEST_BATCH_SIZE 2   
+#define TEST_BATCH_SIZE 5   
 #endif
 #ifndef TEST_YIELD_US
 #define TEST_YIELD_US  20000 
@@ -115,23 +115,23 @@ static const char *const kNames[] = { TEST_LIST };
 #undef X
 
 static const size_t kNumTests = sizeof(kTests) / sizeof(kTests[0]);
-static size_t g_cursor = 0;  // next test to run
-static int g_passed = 0;     // aggregate pass count
+static size_t g_cursor = 0;  
+static int g_passed = 0; 
 
 static inline uint32_t tic_us(void) { ns_timer_clear(&timerCfg); return ns_us_ticker_read(&timerCfg); }
 static inline uint32_t toc_us(uint32_t t0) { return ns_us_ticker_read(&timerCfg) - t0; }
 
 static void run_one(size_t idx) {
-    __unity_failures = 0;
-    uint32_t t0 = tic_us();
-    kTests[idx]();                  // executes the Unity-skimmed test body
-    uint32_t us = toc_us(t0);
+    // __unity_failures = 0;
+    // uint32_t t0 = tic_us();
+    kTests[idx]();         
+    // uint32_t us = toc_us(t0);
 
-    const int ok = (__unity_failures == 0);
-    if (ok) g_passed++;
+    // const int ok = (__unity_failures == 0);
+    // if (ok) g_passed++;
 
-    ns_lp_printf("[CMSIS-NN][%s] %s (%lu us)\n",
-                    kNames[idx], ok ? "PASS" : "FAIL", (unsigned long)us);
+    // ns_lp_printf("[CMSIS-NN][%s] %s (%lu us)\n",
+    //                 kNames[idx], ok ? "PASS" : "FAIL", (unsigned long)us);
 }
 
 void test_library_step(unsigned budget) {

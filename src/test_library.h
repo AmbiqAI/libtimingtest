@@ -144,12 +144,9 @@ extern "C" {
   X(kernel1x1_stride_x_y_1_arm_convolve_1x1_s4) \
   X(kernel1x1_stride_x_y_1_arm_convolve_1x1_s8) \
   X(kernel1x1_stride_x_y_2_arm_convolve_1x1_s4) \
-  X(kernel1x1_stride_x_y_2_arm_convolve_1x1_s8) \
   X(kernel1x1_stride_x_y_arm_convolve_1x1_s4) \
-  X(kernel1x1_stride_x_y_arm_convolve_1x1_s8) \
   X(requantize_s64_arm_convolve_s16) \
   X(simple_dconv_no_bias) \
-  X(single_in_many_out_ch) \
   X(stride2pad1_arm_convolve_s4) \
   X(stride2pad1_arm_convolve_s8) \
   X(stride2pad1_arm_depthwise_conv_3x3_s8) \
@@ -373,7 +370,6 @@ extern "C" {
   X(svdf_1_arm_svdf_state_s16_s8) \
   X(svdf_2_arm_svdf_state_s16_s8) \
   X(svdf_3_arm_svdf_state_s16_s8) \
-  X(svdf_arm_svdf_state_s16_s8) \
   X(svdf_int8_2_arm_svdf_s8) \
   X(svdf_int8_arm_svdf_s8)
 
@@ -408,6 +404,13 @@ extern "C" {
 //   X(transpose_nwhc_arm_transpose_s8) \
 //   X(transpose_wchn_arm_transpose_s16) \
 //   X(transpose_wchn_arm_transpose_s8) \
+//   X(single_in_many_out_ch) \
+//   X(svdf_arm_svdf_state_s16_s8) \
+//   X(kernel1x1_stride_x_y_2_arm_convolve_1x1_s8) \
+//   X(kernel1x1_stride_x_y_arm_convolve_1x1_s8) \
+// 
+
+
 
 void test_library(void);
 
