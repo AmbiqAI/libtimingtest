@@ -4,8 +4,18 @@
 #include "ns_ambiqsuite_harness.h"
 #include "test_library.h"
 
+// DWT (Debug Watch and Trace) counter support
+#include "arm_math.h"
 
 extern ns_timer_config_t timerCfg;
+
+// DWT counter structure for performance monitoring
+typedef struct {
+    uint32_t cycles;        // CPU cycles
+    uint32_t lsu_count;     // Load/Store Unit operations
+    uint32_t fold_count;    // Folded instructions
+    uint32_t cpi;           // Cycles per instruction (calculated)
+} dwt_counters_t;
 
 volatile int __unity_failures = 0;
 
@@ -121,17 +131,51 @@ static int g_passed = 0;
 static inline uint32_t tic_us(void) { ns_timer_clear(&timerCfg); return ns_us_ticker_read(&timerCfg); }
 static inline uint32_t toc_us(uint32_t t0) { return ns_us_ticker_read(&timerCfg) - t0; }
 
+static inline void dwt_start_counters(void) {
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;  
+    DWT->CTRL |= DWT_CTRL_LSUEVTENA_Msk;  
+    DWT->CTRL |= DWT_CTRL_FOLDEVTENA_Msk; 
+    
+    DWT->CYCCNT = 0;
+    DWT->LSUCNT = 0;
+    DWT->FOLDCNT = 0;
+}
+
+static inline dwt_counters_t dwt_stop_counters(void) {
+    dwt_counters_t counters;
+    counters.cycles = DWT->CYCCNT;
+    counters.lsu_count = DWT->LSUCNT;
+    counters.fold_count = DWT->FOLDCNT;
+    
+    if (counters.lsu_count > 0) {
+        counters.cpi = counters.cycles / counters.lsu_count;
+    } else {
+        counters.cpi = counters.cycles;
+    }
+    
+    return counters;
+}
+
 static void run_one(size_t idx) {
-    // __unity_failures = 0;
-    // uint32_t t0 = tic_us();
+    __unity_failures = 0;
+    
+    uint32_t t0 = tic_us();
+    dwt_start_counters();
+    
     kTests[idx]();         
-    // uint32_t us = toc_us(t0);
 
-    // const int ok = (__unity_failures == 0);
-    // if (ok) g_passed++;
+    dwt_counters_t dwt = dwt_stop_counters();
+    uint32_t us = toc_us(t0);
 
-    // ns_lp_printf("[CMSIS-NN][%s] %s (%lu us)\n",
-    //                 kNames[idx], ok ? "PASS" : "FAIL", (unsigned long)us);
+    const int ok = (__unity_failures == 0);
+    if (ok) g_passed++;
+    
+    ns_lp_printf("[KERNEL][%s][%s] %s (%lu us, %lu cycles, %lu LSU, %lu fold, %lu CPI)\n",
+                 kNames[idx], kNames[idx], ok ? "PASS" : "FAIL", 
+                 (unsigned long)us, (unsigned long)dwt.cycles, 
+                 (unsigned long)dwt.lsu_count, (unsigned long)dwt.fold_count, 
+                 (unsigned long)dwt.cpi);
 }
 
 void test_library_step(unsigned budget) {
