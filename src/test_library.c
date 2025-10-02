@@ -137,11 +137,6 @@ void test_library_step(unsigned budget) {
         ns_delay_us(TEST_YIELD_US);
     }
 
-    if (g_cursor == kNumTests) {
-        ns_lp_printf("[CMSIS-NN] Summary: %s (%d/%u passed)\n\n",
-                    (g_passed == (int)kNumTests) ? "PASS" : "FAIL",
-                    g_passed, (unsigned)kNumTests);
-    }
 }
 
 int test_library_done(void) { return g_cursor >= kNumTests; }

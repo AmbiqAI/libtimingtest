@@ -16,6 +16,10 @@
 #include "main.h"
 #include "test_library.h"
 
+#if (configAPPLICATION_ALLOCATED_HEAP == 1)
+size_t ucHeapSize = (NS_MALLOC_HEAP_SIZE_IN_K + 8) * 1024;
+NS_SRAM_BSS uint8_t ucHeap[(NS_MALLOC_HEAP_SIZE_IN_K + 8) * 1024] __attribute__((aligned(4)));
+#endif
 
 ns_timer_config_t timerCfg = {
     .api = &ns_timer_V1_0_0,

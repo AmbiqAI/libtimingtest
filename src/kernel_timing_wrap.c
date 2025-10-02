@@ -1,15 +1,21 @@
-/**
- * NON-INVASIVE timing wrappers for CMSIS-NN kernels.
- * Generated automatically - do not edit manually.
- *
- * Usage: Link with -Wl,--wrap=<symbol> for each wrapped function.
- */
-
 #include <stdint.h>
 #include "ns_ambiqsuite_harness.h"
 #include "arm_nnfunctions.h"
 #include "ns_perf_profile.h"
 #include "ns_pmu_utils.h"
+#include <stddef.h> 
+
+void *ns_malloc(size_t size);
+void  ns_free(void *ptr);
+
+
+void *__wrap_malloc(size_t size) {
+    return ns_malloc(size);
+}
+
+void __wrap_free(void *ptr) {
+    ns_free(ptr);
+}
 
 extern ns_timer_config_t timerCfg;
 
@@ -84,13 +90,13 @@ static void init_pmu_if_needed(void)
     pmuCfg.events[6].eventId = 0x0001; // ARM_PMU_L1I_CACHE_REFILL
     pmuCfg.events[6].counterSize = NS_PMU_EVENT_COUNTER_SIZE_32;
     
-    // Initialize PMU
-    if (ns_pmu_init(&pmuCfg) == NS_STATUS_SUCCESS) {
-      pmu_initialized = true;
-      ns_lp_printf("[PMU] Initialized with 7 counters: MVE_INST_RETIRED, MVE_INT_MAC_RETIRED, INST_RETIRED, BUS_CYCLES, CPU_CYCLES, L1D_CACHE_REFILL, L1I_CACHE_REFILL\n");
-    } else {
-      ns_lp_printf("[PMU] Failed to initialize PMU counters\n");
-    }
+    // // Initialize PMU
+    // if (ns_pmu_init(&pmuCfg) == NS_STATUS_SUCCESS) {
+    //   pmu_initialized = true;
+    //   ns_lp_printf("[PMU] Initialized with 7 counters: MVE_INST_RETIRED, MVE_INT_MAC_RETIRED, INST_RETIRED, BUS_CYCLES, CPU_CYCLES, L1D_CACHE_REFILL, L1I_CACHE_REFILL\n");
+    // } else {
+    //   ns_lp_printf("[PMU] Failed to initialize PMU counters\n");
+    // }
   }
 }
 
@@ -116,7 +122,7 @@ static void capture_start_counters(void)
 }
 
 // Capture PMU and DWT counters after kernel call and log them
-static void capture_end_counters_and_log(const char *name, uint32_t timing_us)
+static void capture_end_counters_and_log(const char *name, uint32_t timing_us, arm_cmsis_nn_status status)
 {
   // Capture DWT counters
   ns_capture_perf_profiler(&dwtEnd);
@@ -138,8 +144,9 @@ static void capture_end_counters_and_log(const char *name, uint32_t timing_us)
     ns_delta_pmu(&pmuStart, &pmuEnd, &pmuDelta);
   }
   
-  // Log all counters in one line: kernel_name, time, counter1, counter2, etc.
-  ns_lp_printf("%s, Time=%lu, ", name, (unsigned long)timing_us);
+  // Log all counters in one line: kernel_name, time, status, counter1, counter2, etc.
+  const char* status_str = (status == ARM_CMSIS_NN_SUCCESS) ? "SUCCESS" : "FAILURE";
+  ns_lp_printf("%s, Time=%lu, Status=%s(%d), ", name, (unsigned long)timing_us, status_str, (int)status);
   
   // DWT counters
   ns_lp_printf("DWT_cycles=%lu, DWT_instructions=%lu, DWT_cpi=%lu, DWT_exceptions=%lu, DWT_sleep=%lu, DWT_lsu=%lu, DWT_fold=%lu, ", 
@@ -183,7 +190,7 @@ arm_cmsis_nn_status __wrap_arm_add_s16(
       input1_data, input1_dims, input2_data, input2_dims, input1_offset, input1_mult, input1_shift, input2_offset,
       input2_mult, input2_shift, left_shift, output_data, output_dims, out_offset, out_mult, out_shift,
       out_activation_min, out_activation_max);
-  capture_end_counters_and_log("arm_add_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_add_s16", toc_us(t0), rc);
   return rc;
 }
 
@@ -209,7 +216,7 @@ arm_cmsis_nn_status __wrap_arm_add_s8(
       input1_data, input1_dims, input2_data, input2_dims, input1_offset, input1_mult, input1_shift, input2_offset,
       input2_mult, input2_shift, left_shift, output_data, output_dims, out_offset, out_mult, out_shift,
       out_activation_min, out_activation_max);
-  capture_end_counters_and_log("arm_add_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_add_s8", toc_us(t0), rc);
   log_kernel("arm_add_s8", toc_us(t0));
   return rc;
 }
@@ -262,7 +269,7 @@ arm_cmsis_nn_status __wrap_arm_batch_matmul_s16(
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_batch_matmul_s16(
       ctx, bmm_params, quant_params, input_lhs_dims, input_lhs, input_rhs_dims, input_rhs, output_dims, output);
-  capture_end_counters_and_log("arm_batch_matmul_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_batch_matmul_s16", toc_us(t0), rc);
   log_kernel("arm_batch_matmul_s16", toc_us(t0));
   return rc;
 }
@@ -282,7 +289,7 @@ arm_cmsis_nn_status __wrap_arm_batch_matmul_s8(
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_batch_matmul_s8(
       ctx, bmm_params, quant_params, input_lhs_dims, input_lhs, input_rhs_dims, input_rhs, output_dims, output);
-  capture_end_counters_and_log("arm_batch_matmul_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_batch_matmul_s8", toc_us(t0), rc);
   log_kernel("arm_batch_matmul_s8", toc_us(t0));
   return rc;
 }
@@ -305,7 +312,7 @@ arm_cmsis_nn_status __wrap_arm_convolve_1_x_n_s4(
   arm_cmsis_nn_status rc = __real_arm_convolve_1_x_n_s4(
       ctx, weight_sum_ctx, conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_convolve_1_x_n_s4", toc_us(t0));
+  capture_end_counters_and_log("arm_convolve_1_x_n_s4", toc_us(t0), rc);
   log_kernel("arm_convolve_1_x_n_s4", toc_us(t0));
   return rc;
 }
@@ -328,7 +335,7 @@ arm_cmsis_nn_status __wrap_arm_convolve_1_x_n_s8(
   arm_cmsis_nn_status rc = __real_arm_convolve_1_x_n_s8(
       ctx, weight_sum_ctx, conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_convolve_1_x_n_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_convolve_1_x_n_s8", toc_us(t0), rc);
   log_kernel("arm_convolve_1_x_n_s8", toc_us(t0));
   return rc;
 }
@@ -351,7 +358,7 @@ arm_cmsis_nn_status __wrap_arm_convolve_1x1_s4(
   arm_cmsis_nn_status rc = __real_arm_convolve_1x1_s4(
       ctx, weight_sum_ctx, conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_convolve_1x1_s4", toc_us(t0));
+  capture_end_counters_and_log("arm_convolve_1x1_s4", toc_us(t0), rc);
   log_kernel("arm_convolve_1x1_s4", toc_us(t0));
   return rc;
 }
@@ -374,7 +381,7 @@ arm_cmsis_nn_status __wrap_arm_convolve_1x1_s4_fast(
   arm_cmsis_nn_status rc = __real_arm_convolve_1x1_s4_fast(
       ctx, weight_sum_ctx, conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_convolve_1x1_s4_fast", toc_us(t0));
+  capture_end_counters_and_log("arm_convolve_1x1_s4_fast", toc_us(t0), rc);
   log_kernel("arm_convolve_1x1_s4_fast", toc_us(t0));
   return rc;
 }
@@ -397,7 +404,7 @@ arm_cmsis_nn_status __wrap_arm_convolve_1x1_s8(
   arm_cmsis_nn_status rc = __real_arm_convolve_1x1_s8(
       ctx, weight_sum_ctx, conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_convolve_1x1_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_convolve_1x1_s8", toc_us(t0), rc);
   log_kernel("arm_convolve_1x1_s8", toc_us(t0));
   return rc;
 }
@@ -420,7 +427,7 @@ arm_cmsis_nn_status __wrap_arm_convolve_1x1_s8_fast(
   arm_cmsis_nn_status rc = __real_arm_convolve_1x1_s8_fast(
       ctx, weight_sum_ctx, conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_convolve_1x1_s8_fast", toc_us(t0));
+  capture_end_counters_and_log("arm_convolve_1x1_s8_fast", toc_us(t0), rc);
   log_kernel("arm_convolve_1x1_s8_fast", toc_us(t0));
   return rc;
 }
@@ -443,7 +450,7 @@ arm_cmsis_nn_status __wrap_arm_convolve_s16(
   arm_cmsis_nn_status rc = __real_arm_convolve_s16(
       ctx, weight_sum_ctx, conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_convolve_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_convolve_s16", toc_us(t0), rc);
   log_kernel("arm_convolve_s16", toc_us(t0));
   return rc;
 }
@@ -466,7 +473,7 @@ arm_cmsis_nn_status __wrap_arm_convolve_s4(
   arm_cmsis_nn_status rc = __real_arm_convolve_s4(
       ctx, weight_sum_ctx, conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_convolve_s4", toc_us(t0));
+  capture_end_counters_and_log("arm_convolve_s4", toc_us(t0), rc);
   log_kernel("arm_convolve_s4", toc_us(t0));
   return rc;
 }
@@ -489,7 +496,7 @@ arm_cmsis_nn_status __wrap_arm_convolve_s8(
   arm_cmsis_nn_status rc = __real_arm_convolve_s8(
       ctx, weight_sum_ctx, conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, upscale_dims, output_dims, output_data);
-  capture_end_counters_and_log("arm_convolve_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_convolve_s8", toc_us(t0), rc);
   log_kernel("arm_convolve_s8", toc_us(t0));
   return rc;
 }
@@ -525,7 +532,7 @@ arm_cmsis_nn_status __wrap_arm_convolve_weight_sum_s4(
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_convolve_weight_sum_s4(
       vector_sum_buf, weights_s4, input_dims, filter_dims, output_dims, lhs_offset, bias_data);
-  capture_end_counters_and_log("arm_convolve_weight_sum_s4", toc_us(t0));
+  capture_end_counters_and_log("arm_convolve_weight_sum_s4", toc_us(t0), rc);
   log_kernel("arm_convolve_weight_sum_s4", toc_us(t0));
   return rc;
 }
@@ -548,7 +555,7 @@ arm_cmsis_nn_status __wrap_arm_convolve_wrapper_s16(
   arm_cmsis_nn_status rc = __real_arm_convolve_wrapper_s16(
       ctx, weight_sum_ctx, conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_convolve_wrapper_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_convolve_wrapper_s16", toc_us(t0), rc);
   log_kernel("arm_convolve_wrapper_s16", toc_us(t0));
   return rc;
 }
@@ -571,7 +578,7 @@ arm_cmsis_nn_status __wrap_arm_convolve_wrapper_s4(
   arm_cmsis_nn_status rc = __real_arm_convolve_wrapper_s4(
       ctx, weight_sum_ctx, conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_convolve_wrapper_s4", toc_us(t0));
+  capture_end_counters_and_log("arm_convolve_wrapper_s4", toc_us(t0), rc);
   log_kernel("arm_convolve_wrapper_s4", toc_us(t0));
   return rc;
 }
@@ -594,7 +601,7 @@ arm_cmsis_nn_status __wrap_arm_convolve_wrapper_s8(
   arm_cmsis_nn_status rc = __real_arm_convolve_wrapper_s8(
       ctx, weight_sum_ctx, conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_convolve_wrapper_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_convolve_wrapper_s8", toc_us(t0), rc);
   log_kernel("arm_convolve_wrapper_s8", toc_us(t0));
   return rc;
 }
@@ -617,7 +624,7 @@ arm_cmsis_nn_status __wrap_arm_depthwise_conv_3x3_s8(
   arm_cmsis_nn_status rc = __real_arm_depthwise_conv_3x3_s8(
       ctx, weight_sum_ctx, dw_conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_depthwise_conv_3x3_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_depthwise_conv_3x3_s8", toc_us(t0), rc);
   log_kernel("arm_depthwise_conv_3x3_s8", toc_us(t0));
   return rc;
 }
@@ -640,7 +647,7 @@ arm_cmsis_nn_status __wrap_arm_depthwise_conv_fast_s16(
   arm_cmsis_nn_status rc = __real_arm_depthwise_conv_fast_s16(
       ctx, weight_sum_ctx, dw_conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_depthwise_conv_fast_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_depthwise_conv_fast_s16", toc_us(t0), rc);
   log_kernel("arm_depthwise_conv_fast_s16", toc_us(t0));
   return rc;
 }
@@ -663,7 +670,7 @@ arm_cmsis_nn_status __wrap_arm_depthwise_conv_s16(
   arm_cmsis_nn_status rc = __real_arm_depthwise_conv_s16(
       ctx, weight_sum_ctx, dw_conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_depthwise_conv_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_depthwise_conv_s16", toc_us(t0), rc);
   log_kernel("arm_depthwise_conv_s16", toc_us(t0));
   return rc;
 }
@@ -686,7 +693,7 @@ arm_cmsis_nn_status __wrap_arm_depthwise_conv_s4(
   arm_cmsis_nn_status rc = __real_arm_depthwise_conv_s4(
       ctx, weight_sum_ctx, dw_conv_params, quant_params, input_dims, input, filter_dims, kernel, bias_dims, bias,
       output_dims, output);
-  capture_end_counters_and_log("arm_depthwise_conv_s4", toc_us(t0));
+  capture_end_counters_and_log("arm_depthwise_conv_s4", toc_us(t0), rc);
   log_kernel("arm_depthwise_conv_s4", toc_us(t0));
   return rc;
 }
@@ -709,7 +716,7 @@ arm_cmsis_nn_status __wrap_arm_depthwise_conv_s8(
   arm_cmsis_nn_status rc = __real_arm_depthwise_conv_s8(
       ctx, weight_sum_ctx, dw_conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_depthwise_conv_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_depthwise_conv_s8", toc_us(t0), rc);
   log_kernel("arm_depthwise_conv_s8", toc_us(t0));
   return rc;
 }
@@ -732,7 +739,7 @@ arm_cmsis_nn_status __wrap_arm_depthwise_conv_s4_opt(
   arm_cmsis_nn_status rc = __real_arm_depthwise_conv_s4_opt(
       ctx, weight_sum_ctx, dw_conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_depthwise_conv_s4_opt", toc_us(t0));
+  capture_end_counters_and_log("arm_depthwise_conv_s4_opt", toc_us(t0), rc);
   log_kernel("arm_depthwise_conv_s4_opt", toc_us(t0));
   return rc;
 }
@@ -755,7 +762,7 @@ arm_cmsis_nn_status __wrap_arm_depthwise_conv_s8_opt(
   arm_cmsis_nn_status rc = __real_arm_depthwise_conv_s8_opt(
       ctx, weight_sum_ctx, dw_conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_depthwise_conv_s8_opt", toc_us(t0));
+  capture_end_counters_and_log("arm_depthwise_conv_s8_opt", toc_us(t0), rc);
   log_kernel("arm_depthwise_conv_s8_opt", toc_us(t0));
   return rc;
 }
@@ -778,7 +785,7 @@ arm_cmsis_nn_status __wrap_arm_depthwise_conv_wrapper_s16(
   arm_cmsis_nn_status rc = __real_arm_depthwise_conv_wrapper_s16(
       ctx, weight_sum_ctx, dw_conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_depthwise_conv_wrapper_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_depthwise_conv_wrapper_s16", toc_us(t0), rc);
   log_kernel("arm_depthwise_conv_wrapper_s16", toc_us(t0));
   return rc;
 }
@@ -801,7 +808,7 @@ arm_cmsis_nn_status __wrap_arm_depthwise_conv_wrapper_s4(
   arm_cmsis_nn_status rc = __real_arm_depthwise_conv_wrapper_s4(
       ctx, weight_sum_ctx, dw_conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_depthwise_conv_wrapper_s4", toc_us(t0));
+  capture_end_counters_and_log("arm_depthwise_conv_wrapper_s4", toc_us(t0), rc);
   log_kernel("arm_depthwise_conv_wrapper_s4", toc_us(t0));
   return rc;
 }
@@ -824,7 +831,7 @@ arm_cmsis_nn_status __wrap_arm_depthwise_conv_wrapper_s8(
   arm_cmsis_nn_status rc = __real_arm_depthwise_conv_wrapper_s8(
       ctx, weight_sum_ctx, dw_conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_depthwise_conv_wrapper_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_depthwise_conv_wrapper_s8", toc_us(t0), rc);
   log_kernel("arm_depthwise_conv_wrapper_s8", toc_us(t0));
   return rc;
 }
@@ -844,7 +851,7 @@ arm_cmsis_nn_status __wrap_arm_depthwise_convolve_weight_sum(
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_depthwise_convolve_weight_sum(
       vector_sum_buf, scratch_buf, rhs, dw_conv_params, input_dims, filter_dims, output_dims, lhs_offset, bias_data);
-  capture_end_counters_and_log("arm_depthwise_convolve_weight_sum", toc_us(t0));
+  capture_end_counters_and_log("arm_depthwise_convolve_weight_sum", toc_us(t0), rc);
   log_kernel("arm_depthwise_convolve_weight_sum", toc_us(t0));
   return rc;
 }
@@ -864,7 +871,7 @@ arm_cmsis_nn_status __wrap_arm_depthwise_weight_sum_s4(
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_depthwise_weight_sum_s4(
       vector_sum_buf, weights_s4, input_dims, filter_dims, output_dims, lhs_offset, bias_data);
-  capture_end_counters_and_log("arm_depthwise_weight_sum_s4", toc_us(t0));
+  capture_end_counters_and_log("arm_depthwise_weight_sum_s4", toc_us(t0), rc);
   log_kernel("arm_depthwise_weight_sum_s4", toc_us(t0));
   return rc;
 }
@@ -890,7 +897,7 @@ arm_cmsis_nn_status __wrap_arm_elementwise_add_s16(
       input_1_vect, input_2_vect, input_1_offset, input_1_mult, input_1_shift, input_2_offset, input_2_mult,
       input_2_shift, left_shift, output, out_offset, out_mult, out_shift, out_activation_min, out_activation_max,
       block_size);
-  capture_end_counters_and_log("arm_elementwise_add_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_elementwise_add_s16", toc_us(t0), rc);
   log_kernel("arm_elementwise_add_s16", toc_us(t0));
   return rc;
 }
@@ -914,7 +921,7 @@ arm_cmsis_nn_status __wrap_arm_elementwise_add_s8(
       input_1_vect, input_2_vect, input_1_offset, input_1_mult, input_1_shift, input_2_offset, input_2_mult,
       input_2_shift, left_shift, output, out_offset, out_mult, out_shift, out_activation_min, out_activation_max,
       block_size);
-  capture_end_counters_and_log("arm_elementwise_add_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_elementwise_add_s8", toc_us(t0), rc);
   log_kernel("arm_elementwise_add_s8", toc_us(t0));
   return rc;
 }
@@ -937,7 +944,7 @@ arm_cmsis_nn_status __wrap_arm_elementwise_mul_s16(
   arm_cmsis_nn_status rc = __real_arm_elementwise_mul_s16(
       input_1_vect, input_2_vect, input_1_offset, input_2_offset, output, out_offset, out_mult, out_shift,
       out_activation_min, out_activation_max, block_size);
-  capture_end_counters_and_log("arm_elementwise_mul_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_elementwise_mul_s16", toc_us(t0), rc);
   log_kernel("arm_elementwise_mul_s16", toc_us(t0));
   return rc;
 }
@@ -958,7 +965,7 @@ arm_cmsis_nn_status __wrap_arm_elementwise_mul_s8(
   arm_cmsis_nn_status rc = __real_arm_elementwise_mul_s8(
       input_1_vect, input_2_vect, input_1_offset, input_2_offset, output, out_offset, out_mult, out_shift,
       out_activation_min, out_activation_max, block_size);
-  capture_end_counters_and_log("arm_elementwise_mul_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_elementwise_mul_s8", toc_us(t0), rc);
   log_kernel("arm_elementwise_mul_s8", toc_us(t0));
   return rc;
 }
@@ -981,7 +988,7 @@ arm_cmsis_nn_status __wrap_arm_fully_connected_per_channel_s8(
   arm_cmsis_nn_status rc = __real_arm_fully_connected_per_channel_s8(
       ctx, fc_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims, bias_data, output_dims,
       output_data);
-  capture_end_counters_and_log("arm_fully_connected_per_channel_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_fully_connected_per_channel_s8", toc_us(t0), rc);
   log_kernel("arm_fully_connected_per_channel_s8", toc_us(t0));
   return rc;
 }
@@ -1004,7 +1011,7 @@ arm_cmsis_nn_status __wrap_arm_fully_connected_s16(
   arm_cmsis_nn_status rc = __real_arm_fully_connected_s16(
       ctx, fc_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims, bias_data, output_dims,
       output_data);
-  capture_end_counters_and_log("arm_fully_connected_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_fully_connected_s16", toc_us(t0), rc);
   log_kernel("arm_fully_connected_s16", toc_us(t0));
   return rc;
 }
@@ -1027,7 +1034,7 @@ arm_cmsis_nn_status __wrap_arm_fully_connected_s4(
   arm_cmsis_nn_status rc = __real_arm_fully_connected_s4(
       ctx, fc_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims, bias_data, output_dims,
       output_data);
-  capture_end_counters_and_log("arm_fully_connected_s4", toc_us(t0));
+  capture_end_counters_and_log("arm_fully_connected_s4", toc_us(t0), rc);
   log_kernel("arm_fully_connected_s4", toc_us(t0));
   return rc;
 }
@@ -1050,7 +1057,7 @@ arm_cmsis_nn_status __wrap_arm_fully_connected_s8(
   arm_cmsis_nn_status rc = __real_arm_fully_connected_s8(
       ctx, fc_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims, bias_data, output_dims,
       output_data);
-  capture_end_counters_and_log("arm_fully_connected_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_fully_connected_s8", toc_us(t0), rc);
   log_kernel("arm_fully_connected_s8", toc_us(t0));
   return rc;
 }
@@ -1073,7 +1080,7 @@ arm_cmsis_nn_status __wrap_arm_fully_connected_wrapper_s8(
   arm_cmsis_nn_status rc = __real_arm_fully_connected_wrapper_s8(
       ctx, fc_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims, bias_data, output_dims,
       output_data);
-  capture_end_counters_and_log("arm_fully_connected_wrapper_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_fully_connected_wrapper_s8", toc_us(t0), rc);
   log_kernel("arm_fully_connected_wrapper_s8", toc_us(t0));
   return rc;
 }
@@ -1094,7 +1101,7 @@ arm_cmsis_nn_status __wrap_arm_hard_swish_compat_s16(
   arm_cmsis_nn_status rc = __real_arm_hard_swish_compat_s16(
       input, input_offset, output_offset, output_multiplier_fp, output_multiplier_exp, relu_multiplier_fp,
       relu_multiplier_exp, output, output_size);
-  capture_end_counters_and_log("arm_hard_swish_compat_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_hard_swish_compat_s16", toc_us(t0), rc);
   log_kernel("arm_hard_swish_compat_s16", toc_us(t0));
   return rc;
 }
@@ -1115,7 +1122,7 @@ arm_cmsis_nn_status __wrap_arm_hard_swish_compat_s8(
   arm_cmsis_nn_status rc = __real_arm_hard_swish_compat_s8(
       input, input_offset, output_offset, output_multiplier_fp, output_multiplier_exp, relu_multiplier_fp,
       relu_multiplier_exp, output, output_size);
-  capture_end_counters_and_log("arm_hard_swish_compat_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_hard_swish_compat_s8", toc_us(t0), rc);
   log_kernel("arm_hard_swish_compat_s8", toc_us(t0));
   return rc;
 }
@@ -1135,7 +1142,7 @@ arm_cmsis_nn_status __wrap_arm_hard_swish_precise_s16(
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_hard_swish_precise_s16(
       input, input_offset, output_offset, output_multiplier, output_shift, relu_q3, relu_q6, output, output_size);
-  capture_end_counters_and_log("arm_hard_swish_precise_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_hard_swish_precise_s16", toc_us(t0), rc);
   log_kernel("arm_hard_swish_precise_s16", toc_us(t0));
   return rc;
 }
@@ -1154,7 +1161,7 @@ arm_cmsis_nn_status __wrap_arm_hard_swish_precise_s8(
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_hard_swish_precise_s8(
       input, input_offset, output_offset, output_multiplier, output_shift, relu_q3, relu_q6, output, output_size);
-  capture_end_counters_and_log("arm_hard_swish_precise_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_hard_swish_precise_s8", toc_us(t0), rc);
   log_kernel("arm_hard_swish_precise_s8", toc_us(t0));
   return rc;
 }
@@ -1175,7 +1182,7 @@ arm_cmsis_nn_status __wrap_arm_leaky_relu_s8(
   arm_cmsis_nn_status rc = __real_arm_leaky_relu_s8(
       input, input_offset, output_offset, output_multiplier_alpha, output_shift_alpha, output_multiplier_identity,
       output_shift_identity, output, output_size);
-  capture_end_counters_and_log("arm_leaky_relu_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_leaky_relu_s8", toc_us(t0), rc);
   log_kernel("arm_leaky_relu_s8", toc_us(t0));
   return rc;
 }
@@ -1190,7 +1197,7 @@ arm_cmsis_nn_status __wrap_arm_lstm_unidirectional_s16(
   uint32_t t0 = tic_us();
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_lstm_unidirectional_s16(input, output, params, buffers);
-  capture_end_counters_and_log("arm_lstm_unidirectional_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_lstm_unidirectional_s16", toc_us(t0), rc);
   log_kernel("arm_lstm_unidirectional_s16", toc_us(t0));
   return rc;
 }
@@ -1205,7 +1212,7 @@ arm_cmsis_nn_status __wrap_arm_lstm_unidirectional_s8(
   uint32_t t0 = tic_us();
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_lstm_unidirectional_s8(input, output, params, buffers);
-  capture_end_counters_and_log("arm_lstm_unidirectional_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_lstm_unidirectional_s8", toc_us(t0), rc);
   log_kernel("arm_lstm_unidirectional_s8", toc_us(t0));
   return rc;
 }
@@ -1222,7 +1229,7 @@ arm_cmsis_nn_status __wrap_arm_max_pool_s16(
   uint32_t t0 = tic_us();
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_max_pool_s16(ctx, pool_params, input_dims, src, filter_dims, output_dims, dst);
-  capture_end_counters_and_log("arm_max_pool_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_max_pool_s16", toc_us(t0), rc);
   log_kernel("arm_max_pool_s16", toc_us(t0));
   return rc;
 }
@@ -1294,7 +1301,7 @@ arm_cmsis_nn_status __wrap_arm_mean_s16(
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_mean_s16(
       input_data, input_dims, input_offset, axis_dims, output_data, output_dims, out_offset, out_mult, out_shift);
-  capture_end_counters_and_log("arm_mean_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_mean_s16", toc_us(t0), rc);
   log_kernel("arm_mean_s16", toc_us(t0));
   return rc;
 }
@@ -1314,7 +1321,7 @@ arm_cmsis_nn_status __wrap_arm_mean_s8(
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_mean_s8(
       input_data, input_dims, input_offset, axis_dims, output_data, output_dims, out_offset, out_mult, out_shift);
-  capture_end_counters_and_log("arm_mean_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_mean_s8", toc_us(t0), rc);
   log_kernel("arm_mean_s8", toc_us(t0));
   return rc;
 }
@@ -1373,7 +1380,7 @@ arm_cmsis_nn_status __wrap_arm_mul_s16(
   arm_cmsis_nn_status rc = __real_arm_mul_s16(
       input1_data, input1_dims, input2_data, input2_dims, input1_offset, input2_offset, output_data, output_dims,
       out_offset, out_mult, out_shift, out_activation_min, out_activation_max);
-  capture_end_counters_and_log("arm_mul_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_mul_s16", toc_us(t0), rc);
   log_kernel("arm_mul_s16", toc_us(t0));
   return rc;
 }
@@ -1396,7 +1403,7 @@ arm_cmsis_nn_status __wrap_arm_mul_s8(
   arm_cmsis_nn_status rc = __real_arm_mul_s8(
       input1_data, input1_dims, input2_data, input2_dims, input1_offset, input2_offset, output_data, output_dims,
       out_offset, out_mult, out_shift, out_activation_min, out_activation_max);
-  capture_end_counters_and_log("arm_mul_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_mul_s8", toc_us(t0), rc);
   log_kernel("arm_mul_s8", toc_us(t0));
   return rc;
 }
@@ -1413,7 +1420,7 @@ arm_cmsis_nn_status __wrap_arm_pad_s16(
   uint32_t t0 = tic_us();
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_pad_s16(input, output, pad_value, input_size, pre_pad, post_pad);
-  capture_end_counters_and_log("arm_pad_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_pad_s16", toc_us(t0), rc);
   log_kernel("arm_pad_s16", toc_us(t0));
   return rc;
 }
@@ -1430,7 +1437,7 @@ arm_cmsis_nn_status __wrap_arm_pad_s8(
   uint32_t t0 = tic_us();
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_pad_s8(input, output, pad_value, input_size, pre_pad, post_pad);
-  capture_end_counters_and_log("arm_pad_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_pad_s8", toc_us(t0), rc);
   log_kernel("arm_pad_s8", toc_us(t0));
   return rc;
 }
@@ -1473,7 +1480,7 @@ arm_cmsis_nn_status __wrap_arm_reduce_max_s16(
   uint32_t t0 = tic_us();
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_reduce_max_s16(input_data, input_dims, axis_dims, output_data, output_dims);
-  capture_end_counters_and_log("arm_reduce_max_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_reduce_max_s16", toc_us(t0), rc);
   log_kernel("arm_reduce_max_s16", toc_us(t0));
   return rc;
 }
@@ -1490,7 +1497,7 @@ arm_cmsis_nn_status __wrap_arm_reduce_max_s8(
   uint32_t t0 = tic_us();
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_reduce_max_s8(input_data, input_dims, axis_dims, output_data, output_dims);
-  capture_end_counters_and_log("arm_reduce_max_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_reduce_max_s8", toc_us(t0), rc);
   log_kernel("arm_reduce_max_s8", toc_us(t0));
   return rc;
 }
@@ -1540,7 +1547,7 @@ arm_cmsis_nn_status __wrap_arm_requantize_s16_s16(
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_requantize_s16_s16(
       input, output, size, effective_scale_multiplier, effective_scale_shift, input_zeropoint, output_zeropoint);
-  capture_end_counters_and_log("arm_requantize_s16_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_requantize_s16_s16", toc_us(t0), rc);
   log_kernel("arm_requantize_s16_s16", toc_us(t0));
   return rc;
 }
@@ -1558,7 +1565,7 @@ arm_cmsis_nn_status __wrap_arm_requantize_s8_s8(
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_requantize_s8_s8(
       input, output, size, effective_scale_multiplier, effective_scale_shift, input_zeropoint, output_zeropoint);
-  capture_end_counters_and_log("arm_requantize_s8_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_requantize_s8_s8", toc_us(t0), rc);
   log_kernel("arm_requantize_s8_s8", toc_us(t0));
   return rc;
 }
@@ -1575,41 +1582,43 @@ arm_cmsis_nn_status __wrap_arm_softmax_s16(
   uint32_t t0 = tic_us();
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_softmax_s16(input, num_rows, row_size, mult, shift, softmax_params, output);
-  capture_end_counters_and_log("arm_softmax_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_softmax_s16", toc_us(t0), rc);
   log_kernel("arm_softmax_s16", toc_us(t0));
   return rc;
 }
 
 // arm_softmax_s8
-void __real_arm_softmax_s8(
+arm_cmsis_nn_status __real_arm_softmax_s8(
     const int8_t *input, const int32_t num_rows, const int32_t row_size, const int32_t mult, const int32_t shift,
     const int32_t diff_min, int8_t *output);
 
-void __wrap_arm_softmax_s8(
+    arm_cmsis_nn_status __wrap_arm_softmax_s8(
     const int8_t *input, const int32_t num_rows, const int32_t row_size, const int32_t mult, const int32_t shift,
     const int32_t diff_min, int8_t *output)
 {
   uint32_t t0 = tic_us();
     capture_start_counters();
-  __real_arm_softmax_s8(input, num_rows, row_size, mult, shift, diff_min, output);
-  capture_end_counters_and_log("arm_softmax_s8", toc_us(t0));
+    arm_cmsis_nn_status rc = __real_arm_softmax_s8(input, num_rows, row_size, mult, shift, diff_min, output);
+  capture_end_counters_and_log("arm_softmax_s8", toc_us(t0), rc);
   log_kernel("arm_softmax_s8", toc_us(t0));
+  return rc;
   }
 
 // arm_softmax_s8_s16
-void __real_arm_softmax_s8_s16(
+arm_cmsis_nn_status __real_arm_softmax_s8_s16(
     const int8_t *input, const int32_t num_rows, const int32_t row_size, const int32_t mult, const int32_t shift,
     const int32_t diff_min, int16_t *output);
 
-void __wrap_arm_softmax_s8_s16(
+    arm_cmsis_nn_status __wrap_arm_softmax_s8_s16(
     const int8_t *input, const int32_t num_rows, const int32_t row_size, const int32_t mult, const int32_t shift,
     const int32_t diff_min, int16_t *output)
 {
   uint32_t t0 = tic_us();
     capture_start_counters();
-  __real_arm_softmax_s8_s16(input, num_rows, row_size, mult, shift, diff_min, output);
-  capture_end_counters_and_log("arm_softmax_s8_s16", toc_us(t0));
+    arm_cmsis_nn_status rc =  __real_arm_softmax_s8_s16(input, num_rows, row_size, mult, shift, diff_min, output);
+  capture_end_counters_and_log("arm_softmax_s8_s16", toc_us(t0), rc);
   log_kernel("arm_softmax_s8_s16", toc_us(t0));
+  return rc;
   }
 
 // arm_strided_slice_s8
@@ -1655,7 +1664,7 @@ arm_cmsis_nn_status __wrap_arm_svdf_s8(
       ctx, input_ctx, output_ctx, svdf_params, input_quant_params, output_quant_params, input_dims, input_data,
       state_dims, state_data, weights_feature_dims, weights_feature_data, weights_time_dims, weights_time_data,
       bias_dims, bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_svdf_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_svdf_s8", toc_us(t0), rc);
   log_kernel("arm_svdf_s8", toc_us(t0));
   return rc;
 }
@@ -1685,7 +1694,7 @@ arm_cmsis_nn_status __wrap_arm_svdf_state_s16_s8(
       input_ctx, output_ctx, svdf_params, input_quant_params, output_quant_params, input_dims, input_data, state_dims,
       state_data, weights_feature_dims, weights_feature_data, weights_time_dims, weights_time_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_svdf_state_s16_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_svdf_state_s16_s8", toc_us(t0), rc);
   log_kernel("arm_svdf_state_s16_s8", toc_us(t0));
   return rc;
 }
@@ -1710,7 +1719,7 @@ arm_cmsis_nn_status __wrap_arm_transpose_conv_s8(
   arm_cmsis_nn_status rc = __real_arm_transpose_conv_s8(
       ctx, output_ctx, transpose_conv_params, quant_params, input_dims, input_data, filter_dims, filter_data, bias_dims,
       bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_transpose_conv_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_transpose_conv_s8", toc_us(t0), rc);
   log_kernel("arm_transpose_conv_s8", toc_us(t0));
   return rc;
 }
@@ -1735,7 +1744,7 @@ arm_cmsis_nn_status __wrap_arm_transpose_conv_wrapper_s8(
   arm_cmsis_nn_status rc = __real_arm_transpose_conv_wrapper_s8(
       ctx, weight_sum_ctx, output_ctx, transpose_conv_params, quant_params, input_dims, input_data, filter_dims,
       filter_data, bias_dims, bias_data, output_dims, output_data);
-  capture_end_counters_and_log("arm_transpose_conv_wrapper_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_transpose_conv_wrapper_s8", toc_us(t0), rc);
   log_kernel("arm_transpose_conv_wrapper_s8", toc_us(t0));
   return rc;
 }
@@ -1752,7 +1761,7 @@ arm_cmsis_nn_status __wrap_arm_transpose_s16(
   uint32_t t0 = tic_us();
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_transpose_s16(input_data, output_data, input_dims, output_dims, transpose_params);
-  capture_end_counters_and_log("arm_transpose_s16", toc_us(t0));
+  capture_end_counters_and_log("arm_transpose_s16", toc_us(t0), rc);
   log_kernel("arm_transpose_s16", toc_us(t0));
   return rc;
 }
@@ -1769,7 +1778,7 @@ arm_cmsis_nn_status __wrap_arm_transpose_s8(
   uint32_t t0 = tic_us();
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_transpose_s8(input_data, output_data, input_dims, output_dims, transpose_params);
-  capture_end_counters_and_log("arm_transpose_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_transpose_s8", toc_us(t0), rc);
   log_kernel("arm_transpose_s8", toc_us(t0));
   return rc;
 }
@@ -1803,7 +1812,7 @@ arm_cmsis_nn_status __wrap_arm_vector_sum_s8(
     capture_start_counters();
   arm_cmsis_nn_status rc = __real_arm_vector_sum_s8(
       vector_sum_buf, vector_cols, vector_rows, vector_data, lhs_offset, rhs_offset, bias_data);
-  capture_end_counters_and_log("arm_vector_sum_s8", toc_us(t0));
+  capture_end_counters_and_log("arm_vector_sum_s8", toc_us(t0), rc);
   log_kernel("arm_vector_sum_s8", toc_us(t0));
   return rc;
 }

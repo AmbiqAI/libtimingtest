@@ -83,3 +83,9 @@ WRAP_KERNELS := \
 
 LFLAGS += $(foreach S,$(WRAP_KERNELS),-Wl,--wrap=$(S))
 LFLAGS += -Wl,-Map,$(BINDIR)/link.map
+
+
+
+ifeq ($(TOOLCHAIN),arm-none-eabi)
+LFLAGS += -Wl,--wrap=malloc -Wl,--wrap=free
+endif
