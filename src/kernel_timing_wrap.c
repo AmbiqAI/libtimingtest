@@ -146,7 +146,7 @@ static void capture_end_counters_and_log(const char *name, uint32_t timing_us, a
   
   // Log all counters in one line: kernel_name, time, status, counter1, counter2, etc.
   const char* status_str = (status == ARM_CMSIS_NN_SUCCESS) ? "SUCCESS" : "FAILURE";
-  ns_lp_printf("%s, Time=%lu, Status=%s(%d), ", name, (unsigned long)timing_us, status_str, (int)status);
+  ns_lp_printf("%s, Status=%s(%d), ", name, status_str, (int)status);
   
   // DWT counters
   ns_lp_printf("DWT_cycles=%lu, DWT_instructions=%lu, DWT_cpi=%lu, DWT_exceptions=%lu, DWT_sleep=%lu, DWT_lsu=%lu, DWT_fold=%lu, ", 
